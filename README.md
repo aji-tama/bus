@@ -1,2 +1,4 @@
 # bus
-ETA of specific bus routes at specific bus stop
+show ETA(updated every 15sec) of specific bus routes at specific bus stop by Matplotlib.
+
+ChiWrap is required.
