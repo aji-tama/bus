@@ -10,6 +10,7 @@ from bs4 import BeautifulSoup
 import requests
 from datetime import datetime, timedelta
 from urllib.request import urlretrieve
+import socket
 import feedparser
 import re
 import ChiWrap
@@ -29,9 +30,24 @@ elif platform == 'linux':
 fig = plt.figure(figsize=(12.8,9), facecolor='black')
 
 def busbus(i):
-    global ax0
+    global ax0, TM_temp, TM_RH
     
     T0 = time.time()
+
+    try:
+        plt.clf()
+        ax0.clear()
+    except:
+        print('session start at '+datetime.now().strftime('%d %b %H:%M:%S'))
+        pass
+
+    ax0 = plt.axes()
+    ax0.set_facecolor('k')
+    ax0.set_xlim((0,210))
+    ax0.set_ylim((0,140))
+    ax0.axis('off')
+
+    ax0.annotate((datetime.now()+timedelta(minutes=0.25)).strftime('%a %d %b %H:%M'),(105,125),ha='center',va='center',fontsize=96,color='y')
 
     KMB61META = []
     KMB61METAstr1a = ''
@@ -43,6 +59,8 @@ def busbus(i):
     KMB52XETAstr1b = 'not available'
     KMB52XETAstr2a = ''
     KMB52XETAstr2b = 'not available'
+    
+    socket.setdefaulttimeout(3)
     
     try:
         link_KMB = 'https://data.etabus.gov.hk/v1/transport/kmb/stop-eta/630AA1866C5372B6'
@@ -149,13 +167,6 @@ def busbus(i):
     except:
         pass
 
-    try:
-        plt.clf()
-        ax0.clear()
-    except:
-        print('session start at '+datetime.now().strftime('%d %b %H:%M:%S'))
-        pass
-
     if len(KMB61META) == 0:
         KMB61Mdest = '無車'
     if len(KMB52XETA) == 0:
@@ -164,13 +175,7 @@ def busbus(i):
         CTB962Sdest = '無車'
     if len(CTB962XETA) == 0:
         CTB962Xdest = '無車'
-    
-    ax0 = plt.axes()
-    ax0.set_facecolor('k')
-    ax0.set_xlim((0,210))
-    ax0.set_ylim((0,140))
-    ax0.axis('off')
-    
+        
     ax0.annotate('61M',(0,100+10),ha='left',va='top',fontsize=84,color='w')
     ax0.annotate(KMB61Mdest,(1,85-2+10),fontproperties=chara_chi,ha='left',va='top',color='w')
     ax0.annotate(KMB61METAstr1a,(70,100-2+10),ha='center',va='top',fontsize=18,color='w')
@@ -208,7 +213,10 @@ def busbus(i):
         #alphas = numpy.ones((70,70))
         #alphas[35:, :] = numpy.linspace(1,0,35)[:,None]
         ax0.imshow(weather_icon, extent=(140,210,40,110), zorder=1)
-    except:
+    except Exception as e:
+        print(e)
+        weather_icon = Image.open('weather_icon.png')
+        ax0.imshow(weather_icon, extent=(140,210,40,110), zorder=1)
         print('HKO RSS fail')
         pass
     
@@ -223,7 +231,8 @@ def busbus(i):
         link_w = 'http://www.weather.gov.hk/wxinfo/ts/text_readings_e.htm'
         html_w = requests.get(link_w).text
         soup_w = BeautifulSoup(html_w, 'html.parser')
-    except:
+    except Exception as e:
+        print(e)
         print('HKO Regional Weather fail')
                 
     link_text = 'https://rss.weather.gov.hk/rss/LocalWeatherForecast_uc.xml'
@@ -232,24 +241,27 @@ def busbus(i):
     text_para = soup_text.findAll('description')[1].text
     
     para_l = 20
-    ax0.text(141.5,5,ChiWrap.wrap(str(text_para),para_l)[0],ha='left',va='bottom',fontproperties=chara_chi,color='w',wrap=True,zorder=3)
+    ax0.text(141.5,5,ChiWrap.wrap3(str(text_para),para_l)[0],ha='left',va='bottom',fontproperties=chara_chi,color='w',wrap=True,zorder=3)
     
-    tempfl = ChiWrap.wrap(str(text_para),para_l)[1]*3.515+8
+    tempfl = ChiWrap.wrap3(str(text_para),para_l)[1]*3.515+8
     
     try:
         TM_temp = re.search(r'(.*Tuen\sMun.*)',soup_w.get_text()).group(0).split()[2].replace('*/','')
         temp_cmap = matplotlib.cm.get_cmap('coolwarm')
         ax0.annotate(TM_temp+'$\u00B0$C',(208,tempfl),ha='right',va='bottom',fontsize=48,color=temp_cmap(numpy.clip(float(TM_temp)/40,0,1)),zorder=3)
-    except:
+    except Exception as e:
+        print(e)
+        ax0.annotate(TM_temp+'$\u00B0$C',(208,tempfl),ha='right',va='bottom',fontsize=48,color=temp_cmap(numpy.clip(float(TM_temp)/40,0,1)),zorder=3)
         print('HKO temp fail')
         
     try:
         TM_RH = re.search(r'(.*Tuen\sMun.*)',soup_w.get_text()).group(0).split()[3]
         ax0.annotate(TM_RH+'%',(141,tempfl),ha='left',va='bottom',fontsize=48,color='w',zorder=3)
-    except:
+    except Exception as e:
+        print(e)
+        ax0.annotate(TM_RH+'%',(141,tempfl),ha='left',va='bottom',fontsize=48,color='w',zorder=3)
         print('HKO RH fail')
     
-    ax0.annotate((datetime.now()+timedelta(minutes=0.25)).strftime('%a %d %b %H:%M'),(105,125),ha='center',va='center',fontsize=96,color='y')
     ax0.annotate('updated: '+datetime.now().strftime('%H:%M:%S'),(209,0),ha='right',va='bottom',fontsize=12,color='w')
     
     plt.tight_layout()
@@ -263,7 +275,8 @@ def busbus(i):
 def busbusbus(i):
     try:
         busbus(i)
-    except:
+    except Exception as e:
+        print(e)
         pass
 
 ani = matplotlib.animation.FuncAnimation(fig, busbusbus, repeat=False, interval=15000, save_count=0)
